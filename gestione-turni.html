@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Gestione Turni e Assenze</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f9fdf9; padding: 20px; }
+    select, input, button { margin: 5px; padding: 5px; width: 280px; max-width: 100%; }
+    h2, h3 { color: #2a5d3c; text-align: center; }
+    table { border-collapse: collapse; margin-top: 20px; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+    th { background: #e0f2e9; }
+    .sezione { margin-top: 30px; text-align: center; }
+    .contenitore { display: flex; flex-direction: column; align-items: center; }
+  </style>
+</head>
+<body>
+  <h2>📅 Gestione Turni e Assenze</h2>
+  <div class="contenitore">
+    <button onclick="window.location.href='home.html'">🔙 Torna alla Home</button>
+
+    <div class="sezione">
+      <h3>➕ Inserisci Turno Singolo</h3>
+      <select id="dipendente_singolo"></select>
+      <input type="date" id="data_singolo">
+      <select id="tipo_singolo">
+        <option>Mattina</option>
+        <option>Pomeriggio</option>
+        <option>Notte</option>
+        <option>Sabato Cioccolato</option>
+        <option>Sabato Microbiologia</option>
+        <option>Giornaliero Centrale</option>
+        <option>Giornaliero Mattina</option>
+        <option>Giornaliero Pomeriggio</option>
+        <option>Riposo</option>
+      </select>
+      <input type="text" id="note_singolo" placeholder="Note (opzionali)">
+      <button onclick="inserisciSingolo()">Salva Turno Singolo</button>
+    </div>
+
+    <div class="sezione">
+      <h3>♻️ Genera Turni Ciclo Continuo</h3>
+      <select id="dipendente_auto"></select>
+      <input type="date" id="data_auto_da">
+      <input type="date" id="data_auto_a">
+       <select id="tipo_singolo">
+        <option>Ciclo Continuo</option>
+        <option>Sabato Cioccolato</option>
+        <option>Sabato Microbiologia</option>
+       </select>
+
+      <button onclick="generaTurniLunghi()">Genera Turni</button>
+    </div>
+
+    <div class="sezione">
+      <h3>🚫 Inserisci Assenza</h3>
+      <select id="dipendente_assenza"></select>
+      <input type="date" id="data_assenza_da">
+      <input type="date" id="data_assenza_a">
+      <select id="tipo_assenza">
+        <option>Malattia</option>
+        <option>Legge 104</option>
+        <option>Maternità</option>
+        <option>Esame</option>
+        <option>Corso</option>
+        <option>Trasferta</option>
+      </select>
+      <input type="text" id="note_assenza" placeholder="Note (opzionali)">
+      <button onclick="inserisciAssenza()">Salva Assenza</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+    const supabase = createClient(
+      'https://lhwdoxwqhzskksjcuirj.supabase.co',
+      'YOUR_PUBLIC_ANON_KEY'
+    );
+
+    const utente = JSON.parse(localStorage.getItem("utenteLoggato"));
+    const ruolo = utente.ruolo;
+    const gruppiGestiti = Array.isArray(utente.gruppi_gestiti)
+      ? utente.gruppi_gestiti
+      : (utente.gruppi_gestiti || "").split(",").map(g => g.trim());
+
+    let dipendenti = [];
+
+    async function caricaDipendenti() {
+      const { data } = await supabase.from('dipendenti').select('id, nome, gruppo').eq('attivo', true);
+      dipendenti = data || [];
+      const visibili = ruolo === "Responsabile" || ruolo === "Viceresponsabile"
+        ? dipendenti
+        : dipendenti.filter(d => gruppiGestiti.includes(d.gruppo));
+
+      ["dipendente_singolo", "dipendente_auto", "dipendente_assenza"].forEach(id => {
+        const sel = document.getElementById(id);
+        sel.innerHTML = '';
+        visibili.forEach(d => {
+          const opt = document.createElement("option");
+          opt.value = d.id;
+          opt.textContent = d.nome;
+          sel.appendChild(opt);
+        });
+      });
+    }
+
+    async function inserisciSingolo() {
+      const dip = document.getElementById("dipendente_singolo").value;
+      const data = document.getElementById("data_singolo").value;
+      const tipo = document.getElementById("tipo_singolo").value;
+      const note = document.getElementById("note_singolo").value;
+      if (!dip || !data) return alert("Compila tutti i campi obbligatori.");
+      const { error } = await supabase.from("turni").insert({
+        dipendente_id: dip,
+        data,
+        tipo_turno: tipo,
+        note
+      });
+      if (error) alert("Errore salvataggio turno");
+      else alert("Turno inserito");
+    }
+
+    async function generaTurniLunghi() {
+      const dip = document.getElementById("dipendente_auto").value;
+      const da = new Date(document.getElementById("data_auto_da").value);
+      const a = new Date(document.getElementById("data_auto_a").value);
+      if (!dip || !da || !a) return alert("Completa tutti i campi");
+      const schema = ["Pomeriggio", "Pomeriggio", "Pomeriggio", "Riposo", "Mattina", "Mattina", "Mattina", "Notte", "Notte", "Notte", "Riposo", "Riposo"];
+      const turni = [];
+      let i = 0;
+      for (let giorno = new Date(da); giorno <= a; giorno.setDate(giorno.getDate() + 1)) {
+        turni.push({
+          dipendente_id: dip,
+          data: giorno.toISOString().split("T")[0],
+          tipo_turno: schema[i % schema.length],
+          note: "Turno generato"
+        });
+        i++;
+      }
+      const { error } = await supabase.from("turni").insert(turni);
+      if (error) alert("Errore generazione");
+      else alert("Turni generati");
+    }
+
+    async function inserisciAssenza() {
+      const dip = document.getElementById("dipendente_assenza").value;
+      const da = document.getElementById("data_assenza_da").value;
+      const a = document.getElementById("data_assenza_a").value;
+      const tipo = document.getElementById("tipo_assenza").value;
+      const note = document.getElementById("note_assenza").value;
+      if (!dip || !da || !a) return alert("Completa tutti i campi");
+      const assenze = [];
+      let giorno = new Date(da);
+      const fine = new Date(a);
+      while (giorno <= fine) {
+        assenze.push({
+          dipendente_id: dip,
+          data: giorno.toISOString().split("T")[0],
+          tipo,
+          note
+        });
+        giorno.setDate(giorno.getDate() + 1);
+      }
+      const { error } = await supabase.from("assenze").insert(assenze);
+      if (error) alert("Errore salvataggio assenza");
+      else alert("Assenza salvata");
+    }
+
+    caricaDipendenti();
+  </script>
+</body>
+</html>

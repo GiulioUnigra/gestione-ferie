@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Gestione Dipendenti</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9fdf9;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .form-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 360px;
+    }
+    label, select, input, button {
+      margin: 5px;
+      width: 100%;
+      max-width: 360px;
+    }
+    h2 {
+      color: #2a5d3c;
+    }
+    #gruppi_gestiti, #label_gruppi {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h2>👨‍💼 Gestione Dipendenti</h2>
+  <button onclick="window.location.href='home.html'">🔙 Torna alla Home</button>
+
+  <div class="form-container">
+    <label for="dipendente_select">Modifica dipendente</label>
+    <select id="dipendente_select">
+      <option value="">-- Nuovo dipendente --</option>
+    </select>
+
+    <label for="nome">Nome</label>
+    <input id="nome" placeholder="Mario Rossi">
+
+    <label for="email">Email</label>
+    <input id="email" placeholder="email@azienda.it">
+
+    <label for="password">Password</label>
+    <input id="password" placeholder="password">
+
+    <label for="telefono">Telefono fisso (opzionale)</label>
+    <input id="telefono" placeholder="0546 123456">
+
+    <label for="cellulare">Cellulare (opzionale)</label>
+    <input id="cellulare" placeholder="333 4567890">
+
+    <label for="gruppo">Gruppo</label>
+    <select id="gruppo"></select>
+
+    <label for="ruolo">Ruolo</label>
+    <select id="ruolo" onchange="toggleGruppiGestiti()" disabled>
+      <option>Analista</option>
+      <option>Referente</option>
+      <option>Responsabile</option>
+      <option>Viceresponsabile</option>
+    </select>
+
+    <label for="tipo_turno">Tipo Turno</label>
+    <select id="tipo_turno">
+      <option>Ciclo Continuo</option>
+      <option>Altro</option>
+      <option>Standard</option>
+      <option>Ciclo Oli</option>
+    </select>
+
+    <label for="gruppi_gestiti" id="label_gruppi">Gruppi Gestiti (solo se Referente)</label>
+    <input id="gruppi_gestiti" placeholder="Es: Cioccolato, Oli">
+
+    <label for="ore_accumulate">Ore accumulate (precedenti)</label>
+    <input type="number" id="ore_accumulate" step="0.1">
+
+    <label for="ore_annuali">Ore annuali</label>
+    <input type="number" id="ore_annuali" step="0.1">
+
+    <button onclick="salvaDipendente()">Salva Dipendente</button>
+    <button onclick="eliminaDipendente()">Elimina Dipendente</button>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+    const supabase = createClient(
+      'https://lhwdoxwqhzskksjcuirj.supabase.co',
+      'YOUR_PUBLIC_ANON_KEY'
+    );
+
+    const utente = JSON.parse(localStorage.getItem("utenteLoggato"));
+    const ruoloUtente = utente?.ruolo || "Analista";
+    const gruppiGestitiUtente = Array.isArray(utente?.gruppi_gestiti)
+      ? utente.gruppi_gestiti
+      : (utente?.gruppi_gestiti || "").split(',').map(g => g.trim()).filter(Boolean);
+
+    const ruoloSelect = document.getElementById("ruolo");
+    const dipSelect = document.getElementById("dipendente_select");
+    const gruppoSelect = document.getElementById("gruppo");
+
+    if (ruoloUtente === "Referente") {
+      ruoloSelect.innerHTML = '<option selected>Analista</option>';
+      gruppoSelect.innerHTML = gruppiGestitiUtente.map(g => `<option>${g}</option>`).join('');
+    } else {
+      ruoloSelect.disabled = false;
+      gruppoSelect.innerHTML = ["Cioccolato", "Infoclienti", "Oli", "Contaminanti", "Microbiologia", "Allergeni", "Materie Prime", "Confezionati"]
+        .map(g => `<option>${g}</option>`).join('');
+    }
+
+    window.toggleGruppiGestiti = function () {
+      const ruolo = ruoloSelect.value;
+      document.getElementById("gruppi_gestiti").style.display = ruolo === "Referente" ? "block" : "none";
+      document.getElementById("label_gruppi").style.display = ruolo === "Referente" ? "block" : "none";
+    }
+
+    async function caricaDipendenti() {
+      const { data, error } = await supabase.from("dipendenti").select("*").eq("attivo", true);
+      if (error) return alert("Errore nel recupero dipendenti");
+      dipSelect.innerHTML = '<option value="">-- Nuovo dipendente --</option>';
+      data.forEach(d => {
+        if (ruoloUtente === "Responsabile" || ruoloUtente === "Viceresponsabile" ||
+            (ruoloUtente === "Referente" && gruppiGestitiUtente.includes(d.gruppo))) {
+          const opt = document.createElement("option");
+          opt.value = d.id;
+          opt.textContent = d.nome;
+          dipSelect.appendChild(opt);
+        }
+      });
+      dipSelect.addEventListener("change", () => {
+        const selected = data.find(d => d.id === dipSelect.value);
+        if (!selected) return;
+        document.getElementById("nome").value = selected.nome || "";
+        document.getElementById("email").value = selected.email || "";
+        document.getElementById("password").value = selected.password || "";
+        document.getElementById("telefono").value = selected.telefono || "";
+        document.getElementById("cellulare").value = selected.cellulare || "";
+        document.getElementById("gruppo").value = selected.gruppo || "";
+        document.getElementById("ruolo").value = selected.ruolo || "";
+        document.getElementById("tipo_turno").value = selected.tipo_turno || "";
+        document.getElementById("gruppi_gestiti").value = (selected.gruppi_gestiti || []).join(", ");
+        document.getElementById("ore_accumulate").value = selected.ore_accumulate || 0;
+        document.getElementById("ore_annuali").value = selected.ore_annuali || 0;
+        toggleGruppiGestiti();
+      });
+    }
+
+    async function salvaDipendente() {
+      const id = dipSelect.value;
+      const nome = document.getElementById("nome").value;
+      let email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const telefono = document.getElementById("telefono").value;
+      const cellulare = document.getElementById("cellulare").value;
+      const gruppo = document.getElementById("gruppo").value;
+      const ruolo = document.getElementById("ruolo").value;
+      const tipo_turno = document.getElementById("tipo_turno").value;
+      const gruppiRaw = document.getElementById("gruppi_gestiti").value;
+      const gruppi = ruolo === "Referente" ? gruppiRaw.split(',').map(g => g.trim()).filter(Boolean) : [];
+      const ore_accumulate = parseFloat(document.getElementById("ore_accumulate").value) || 0;
+      const ore_annuali = parseFloat(document.getElementById("ore_annuali").value) || 0;
+
+      // genera email alias se email condivisa
+      if (!email.includes("+") && (email.includes("cioccolab@") || email.includes("laboli@") || email.includes("info@"))) {
+        const parts = nome.trim().split(" ");
+        const alias = (parts[0].substring(0,3) + (parts[1]?.substring(0,3) || "")).toLowerCase();
+        email = `${alias}+${email}`;
+      }
+
+      if (!id) {
+        const { data: user, error: authError } = await supabase.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true
+        });
+        if (authError) return alert("Errore creazione utente auth: " + authError.message);
+        await supabase.from("dipendenti").insert({
+          id: user.user.id, nome, email, password, telefono, cellulare, gruppo, ruolo, tipo_turno,
+          gruppi_gestiti: gruppi, ore_accumulate, ore_annuali, attivo: true
+        });
+      } else {
+        await supabase.from("dipendenti").update({
+          nome, email, password, telefono, cellulare, gruppo, ruolo, tipo_turno,
+          gruppi_gestiti: gruppi, ore_accumulate, ore_annuali
+        }).eq("id", id);
+      }
+      alert("Dipendente salvato."); location.reload();
+    }
+
+    async function eliminaDipendente() {
+      const id = dipSelect.value;
+      if (!id) return alert("Seleziona un dipendente");
+      await supabase.from("dipendenti").update({ attivo: false }).eq("id", id);
+      alert("Dipendente eliminato."); location.reload();
+    }
+
+    caricaDipendenti();
+    window.salvaDipendente = salvaDipendente;
+    window.eliminaDipendente = eliminaDipendente;
+  </script>
+</body>
+</html>

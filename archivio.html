@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Archiviazione Dati</title>
+  <style>
+    body { font-family: Arial; background: #f9fdf9; padding: 20px; text-align: center; }
+    select, button { margin: 10px; padding: 10px 15px; }
+    table { margin: auto; border-collapse: collapse; width: 90%; max-width: 800px; }
+    th, td { border: 1px solid #ccc; padding: 8px; }
+    th { background: #e0f7fa; }
+  </style>
+</head>
+<body>
+  <h2>📦 Archiviazione Annuale</h2>
+  <button onclick="window.location.href='home.html'">🔙 Torna alla Home</button><br>
+
+  <button onclick="archivia()">📁 Archivia Anno Corrente</button>
+  <hr>
+  <h3>📂 Archivio Anni Precedenti</h3>
+  <select id="anno" onchange="caricaArchivio()"></select>
+  <div id="tabella">Seleziona un anno</div>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+    const supabase = createClient(
+      'https://lhwdoxwqhzskksjcuirj.supabase.co',
+      'YOUR_PUBLIC_ANON_KEY'
+    );
+
+    const utente = JSON.parse(localStorage.getItem("utenteLoggato"));
+    const isAdmin = ["Responsabile", "Viceresponsabile"].includes(utente.ruolo);
+    const currentYear = new Date().getFullYear();
+
+    if (!isAdmin) {
+      document.body.innerHTML = "<h3>⛔ Accesso negato</h3>";
+    }
+
+    async function archivia() {
+      const anno = currentYear;
+      const ferie = await supabase.from("ferie").select("*").like("inizio", `${anno}-%`).eq("stato", "Approvata");
+      const turni = await supabase.from("turni").select("*").like("data", `${anno}-%`);
+      const assenze = await supabase.from("assenze").select("*").like("data", `${anno}-%`);
+
+      await supabase.from("archivio_ferie").insert(ferie.data);
+      await supabase.from("archivio_turni").insert(turni.data);
+      await supabase.from("archivio_assenze").insert(assenze.data);
+
+      await supabase.from("dipendenti").update({
+        ore_fruite: 0,
+        ore_accumulate: supabase.sql`ore_disponibili`,
+        ore_disponibili: supabase.sql`ore_disponibili + ore_annuali`
+      }).neq("attivo", false);
+
+      alert("Anno archiviato e ferie aggiornate.");
+      caricaAnni();
+    }
+
+    async function caricaAnni() {
+      const anni = [currentYear - 1, currentYear - 2, currentYear - 3];
+      const sel = document.getElementById("anno");
+      sel.innerHTML = '<option value="">-- Seleziona --</option>';
+      anni.forEach(a => {
+        const opt = document.createElement("option");
+        opt.value = a;
+        opt.textContent = a;
+        sel.appendChild(opt);
+      });
+    }
+
+    async function caricaArchivio() {
+      const anno = document.getElementById("anno").value;
+      if (!anno) return;
+      const ferie = await supabase.from("archivio_ferie").select("*").like("inizio", `${anno}-%`);
+      let html = "<table><thead><tr><th>Dipendente</th><th>Dal</th><th>Al</th><th>Ore</th></tr></thead><tbody>";
+      ferie.data.forEach(f => {
+        html += `<tr><td>${f.dipendente_id}</td><td>${f.inizio}</td><td>${f.fine}</td><td>${f.ore}</td></tr>`;
+      });
+      html += "</tbody></table>";
+      document.getElementById("tabella").innerHTML = html;
+    }
+
+    caricaAnni();
+  </script>
+</body>
+</html>

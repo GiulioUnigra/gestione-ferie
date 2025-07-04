@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Login - Gestione Ferie</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4fcf4;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .login-box {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 8px #ccc;
+      width: 300px;
+    }
+    h2 { text-align: center; color: #2a5d3c; }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #3e8e41;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <h2>🔐 Login</h2>
+    <input id="email" type="email" placeholder="Email aziendale">
+    <input id="password" type="password" placeholder="Password personale">
+    <button onclick="loginUtente()">Accedi</button>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+    const supabase = createClient(
+      'https://lhwdoxwqhzskksjcuirj.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxod2RveHdxaHpza2tzamN1aXJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA1NDM3NzEsImV4cCI6MjA2NjExOTc3MX0.fPspG2EaC3Q74fQ0ZMzQwey4-oQoBbmbOhjG1T2vB9o'
+    );
+
+    window.loginUtente = async function () {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      if (!email || !password) return alert("Inserisci email e password");
+
+      const { data: session, error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+      if (loginError) return alert("Credenziali errate o utente non trovato");
+
+      const { data: profilo, error: profiloError } = await supabase
+        .from("dipendenti")
+        .select("*")
+        .eq("id", session.user.id)
+        .eq("attivo", true)
+        .single();
+
+      if (profiloError || !profilo) return alert("Utente non trovato nella tabella dipendenti o non attivo");
+
+      localStorage.setItem("utenteLoggato", JSON.stringify(profilo));
+      window.location.href = "home.html";
+    }
+  </script>
+</body>
+</html>

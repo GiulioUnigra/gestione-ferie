@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Richiesta Ferie</title>
+  <style>
+    body { font-family: Arial; background: #f4fcf4; padding: 20px; text-align: center; }
+    label, select, input { display: block; margin: 10px auto; width: 80%; max-width: 400px; }
+    button { margin-top: 10px; padding: 10px 20px; background: #4CAF50; color: white; border: none; cursor: pointer; border-radius: 5px; }
+    button:hover { background: #45a049; }
+  </style>
+</head>
+<body>
+  <h2>📩 Richiesta Ferie</h2>
+  <button onclick="window.location.href='home.html'">🔙 Torna alla Home</button>
+
+  <label for="dipendente">Dipendente</label>
+  <select id="dipendente" multiple></select>
+
+  <label for="dal">Dal</label>
+  <input type="date" id="dal" />
+
+  <label for="al">Al</label>
+  <input type="date" id="al" />
+
+  <label for="ore">Ore richieste</label>
+  <input type="number" id="ore" step="0.1" min="0" />
+
+  <button id="btnInvia">Invia Richiesta</button>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+    const supabase = createClient(
+      'https://lhwdoxwqhzskksjcuirj.supabase.co',
+      'YOUR_PUBLIC_ANON_KEY'
+    );
+
+    const utente = JSON.parse(localStorage.getItem("utenteLoggato"));
+    let dipendenti = [];
+
+    async function caricaDipendenti() {
+      const { data } = await supabase.from("dipendenti").select("id, nome, gruppo").eq("attivo", true);
+      dipendenti = data;
+
+      const select = document.getElementById("dipendente");
+      select.innerHTML = "";
+
+      if (utente.ruolo === "Analista") {
+        const me = dipendenti.find(d => d.id === utente.id);
+        if (me) {
+          const opt = document.createElement("option");
+          opt.value = me.id;
+          opt.textContent = me.nome;
+          opt.selected = true;
+          select.appendChild(opt);
+          select.disabled = true;
+        }
+      } else if (utente.ruolo === "Referente") {
+        const gruppiGestiti = Array.isArray(utente.gruppi_gestiti)
+          ? utente.gruppi_gestiti
+          : (utente.gruppi_gestiti || "").split(",").map(g => g.trim());
+        const filtrati = dipendenti.filter(d => gruppiGestiti.includes(d.gruppo));
+
+        filtrati.forEach(d => {
+          const opt = document.createElement("option");
+          opt.value = d.id;
+          opt.textContent = d.nome;
+          select.appendChild(opt);
+        });
+      }
+    }
+
+    async function inviaRichiesta() {
+      const dal = document.getElementById("dal").value;
+      const al = document.getElementById("al").value;
+      const ore = parseFloat(document.getElementById("ore").value);
+      const ids = Array.from(document.getElementById("dipendente").selectedOptions).map(o => o.value);
+
+      if (!dal || !al || !ore || ids.length === 0) {
+        alert("Compila tutti i campi.");
+        return;
+      }
+
+      for (const id of ids) {
+        const destinatario = dipendenti.find(d => d.id == id);
+        const gruppiGestiti = Array.isArray(utente.gruppi_gestiti)
+          ? utente.gruppi_gestiti
+          : (utente.gruppi_gestiti || "").split(",").map(g => g.trim());
+        const approvato = (id == utente.id) || gruppiGestiti.includes(destinatario?.gruppo);
+        const stato = (utente.ruolo === "Referente" && approvato) ? "Approvata" : "In Attesa";
+
+        await supabase.from("ferie").insert({
+          dipendente_id: id,
+          inizio: dal,
+          fine: al,
+          ore,
+          stato,
+          inserita_il: new Date().toISOString()
+        });
+      }
+
+      alert("Richiesta inviata.");
+      location.reload();
+    }
+
+    document.getElementById("btnInvia").addEventListener("click", inviaRichiesta);
+    caricaDipendenti();
+  </script>
+</body>
+</html>

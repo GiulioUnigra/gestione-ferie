@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Rubrica Dipendenti</title>
+  <style>
+    body { font-family: Arial; background: #f9fdf9; padding: 20px; text-align: center; }
+    table { margin: auto; border-collapse: collapse; width: 90%; max-width: 900px; }
+    th, td { border: 1px solid #ccc; padding: 10px; }
+    th { background-color: #d8f5d8; }
+    td { background-color: #fff; }
+  </style>
+</head>
+<body>
+  <h2>📇 Rubrica Dipendenti</h2>
+  <button onclick="window.location.href='home.html'">🔙 Torna alla Home</button>
+  <div id="rubrica">Caricamento...</div>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+    const supabase = createClient(
+      'https://lhwdoxwqhzskksjcuirj.supabase.co',
+      'YOUR_PUBLIC_ANON_KEY'
+    );
+
+    async function caricaRubrica() {
+      const { data, error } = await supabase
+        .from("dipendenti")
+        .select("nome, email, gruppo, telefono, cellulare")
+        .eq("attivo", true)
+        .order("gruppo", { ascending: true })
+        .order("nome", { ascending: true });
+
+      if (error || !data) {
+        document.getElementById("rubrica").innerText = "Errore nel caricamento.";
+        return;
+      }
+
+      let html = "<table><thead><tr><th>👤 Nome</th><th>👥 Gruppo</th><th>📧 Email</th><th>☎️ Telefono</th><th>📱 Cellulare</th></tr></thead><tbody>";
+      data.forEach(d => {
+        html += `<tr>
+          <td>${d.nome}</td>
+          <td>${d.gruppo}</td>
+          <td>${d.email}</td>
+          <td>${d.telefono || "-"}</td>
+          <td>${d.cellulare || "-"}</td>
+        </tr>`;
+      });
+      html += "</tbody></table>";
+      document.getElementById("rubrica").innerHTML = html;
+    }
+
+    caricaRubrica();
+  </script>
+</body>
+</html>

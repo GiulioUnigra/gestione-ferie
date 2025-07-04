@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Calendario Ferie e Turni</title>
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+  <style>
+    body { font-family: Arial, sans-serif; background: #f9fdf9; padding: 20px; text-align: center; }
+    #calendar { max-width: 1200px; margin: auto; }
+    .fc-event { color: black !important; font-size: 0.85em; }
+  </style>
+</head>
+<body>
+  <h2>📅 Calendario Turni e Ferie</h2>
+  <button onclick="window.location.href='home.html'">🔙 Torna alla Home</button>
+  <div id="calendar"></div>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+    import { Calendar } from 'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js';
+
+    const supabase = createClient(
+      'https://lhwdoxwqhzskksjcuirj.supabase.co',
+      'YOUR_PUBLIC_ANON_KEY'
+    );
+
+    const utente = JSON.parse(localStorage.getItem("utenteLoggato"));
+    const ruolo = utente.ruolo;
+    const gruppiGestiti = Array.isArray(utente.gruppi_gestiti)
+      ? utente.gruppi_gestiti
+      : (utente.gruppi_gestiti || "").split(',').map(g => g.trim());
+
+    const coloriTurno = {
+      "Mattina": "#A8E6A2",
+      "Pomeriggio": "#FFF48F",
+      "Notte": "#ADD8E6",
+      "Riposo": "#eeeeee",
+      "Sabato Cioccolato": "#8B4513",
+      "Sabato Microbiologia": "#FFC0CB",
+      "Giornaliero Centrale": "#FFDDC1",
+      "Giornaliero Mattina": "#C1FFD7",
+      "Giornaliero Pomeriggio": "#F0E68C"
+    };
+
+    const coloriGruppo = {
+      "Cioccolato": "#9CCC65",
+      "Oli": "#FFA726",
+      "Contaminanti": "#4DD0E1",
+      "Infoclienti": "#BA68C8",
+      "Microbiologia": "#F06292",
+      "Confezionati": "#A1887F",
+      "Allergeni": "#FF8A65",
+      "Materie Prime": "#90CAF9"
+    };
+
+    async function caricaEventi() {
+      const eventi = [];
+      const { data: dipendenti } = await supabase.from("dipendenti").select("id, nome, gruppo").eq("attivo", true);
+      const visibili = ruolo === "Responsabile" || ruolo === "Viceresponsabile"
+        ? dipendenti
+        : ruolo === "Referente"
+          ? dipendenti.filter(d => gruppiGestiti.includes(d.gruppo))
+          : dipendenti.filter(d => d.id === utente.id);
+
+      const ids = visibili.map(d => d.id);
+      const mappa = Object.fromEntries(visibili.map(d => [d.id, d]));
+
+      const ferie = await supabase.from("ferie").select("*").in("dipendente_id", ids).eq("stato", "Approvata");
+      const turni = await supabase.from("turni").select("*").in("dipendente_id", ids);
+      const assenze = await supabase.from("assenze").select("*").in("dipendente_id", ids);
+
+      for (const f of ferie.data) {
+        const d = mappa[f.dipendente_id];
+        eventi.push({
+          title: d.nome,
+          start: f.inizio,
+          end: f.fine,
+          color: coloriGruppo[d.gruppo] || "#ccc"
+        });
+      }
+
+      for (const t of turni.data) {
+        const d = mappa[t.dipendente_id];
+        eventi.push({
+          title: `${d.nome} - ${t.tipo_turno}`,
+          start: t.data,
+          color: coloriTurno[t.tipo_turno] || "#DDD"
+        });
+      }
+
+      for (const a of assenze.data) {
+        const d = mappa[a.dipendente_id];
+        eventi.push({
+          title: d.nome,
+          start: a.data,
+          color: "#ccc",
+          display: 'background',
+          extendedProps: { tooltip: `${a.tipo} - ${a.note || ""}` }
+        });
+      }
+
+      return eventi;
+    }
+
+    function renderizzaCalendario(eventi) {
+      const calendar = new Calendar(document.getElementById("calendar"), {
+        initialView: 'timeGridWeek',
+        locale: 'it',
+        firstDay: 1,
+        slotMinTime: "06:00:00",
+        slotMaxTime: "22:00:00",
+        allDaySlot: false,
+        events: eventi,
+        eventDidMount(info) {
+          if (info.event.extendedProps.tooltip) {
+            info.el.title = info.event.extendedProps.tooltip;
+          }
+        }
+      });
+      calendar.render();
+    }
+
+    caricaEventi().then(renderizzaCalendario);
+  </script>
+</body>
+</html>

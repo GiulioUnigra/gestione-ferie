@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Approvazione Ferie</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f9fdf9; padding: 20px; }
+    table { border-collapse: collapse; width: 100%; max-width: 900px; margin: 0 auto; }
+    th, td { padding: 8px; border: 1px solid #ccc; text-align: center; }
+    th { background-color: #eef; }
+    button { padding: 5px 10px; margin: 0 5px; }
+  </style>
+</head>
+<body>
+  <h2>✅ Approvazione Ferie</h2>
+  <button onclick="window.location.href='home.html'">🔙 Torna alla Home</button>
+  <div id="tabella-richieste">Caricamento richieste in corso...</div>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+    const supabase = createClient(
+      'https://lhwdoxwqhzskksjcuirj.supabase.co',
+      'YOUR_PUBLIC_ANON_KEY'
+    );
+
+    const utente = JSON.parse(localStorage.getItem("utenteLoggato"));
+    const ruolo = utente.ruolo;
+    const gruppiGestiti = Array.isArray(utente.gruppi_gestiti)
+      ? utente.gruppi_gestiti
+      : (utente.gruppi_gestiti || "").split(',').map(g => g.trim());
+
+    let ferie = [];
+    let dipendenti = [];
+
+    async function caricaRichieste() {
+      const ferieRes = await supabase
+        .from('ferie')
+        .select('*')
+        .eq('stato', 'In Attesa')
+        .order('inserita_il', { ascending: false });
+
+      const dipRes = await supabase
+        .from('dipendenti')
+        .select('id, nome, gruppo')
+        .eq('attivo', true);
+
+      ferie = ferieRes.data || [];
+      dipendenti = dipRes.data || [];
+
+      if (!ferie.length) {
+        document.getElementById("tabella-richieste").innerHTML = "<p>Nessuna richiesta in attesa.</p>";
+        return;
+      }
+
+      const visibili = ferie.filter(r => {
+        const d = dipendenti.find(p => p.id === r.dipendente_id);
+        if (!d) return false;
+        if (ruolo === "Responsabile" || ruolo === "Viceresponsabile") return true;
+        if (ruolo === "Referente") return gruppiGestiti.includes(d.gruppo);
+        return false;
+      });
+
+      if (!visibili.length) {
+        document.getElementById("tabella-richieste").innerHTML = "<p>Nessuna richiesta visibile per il tuo ruolo.</p>";
+        return;
+      }
+
+      let html = "<table><thead><tr><th>Nome</th><th>Gruppo</th><th>Dal</th><th>Al</th><th>Ore</th><th>Azione</th></tr></thead><tbody>";
+      for (const r of visibili) {
+        const d = dipendenti.find(p => p.id === r.dipendente_id);
+        html += `<tr>
+          <td>${d?.nome || "-"}</td>
+          <td>${d?.gruppo || "-"}</td>
+          <td>${formatDate(r.inizio)}</td>
+          <td>${formatDate(r.fine)}</td>
+          <td>${r.ore}</td>
+          <td>
+            <button onclick="aggiornaStato('${r.id}', 'Approvata')">✅</button>
+            <button onclick="aggiornaStato('${r.id}', 'Rifiutata')">❌</button>
+          </td>
+        </tr>`;
+      }
+      html += "</tbody></table>";
+      document.getElementById("tabella-richieste").innerHTML = html;
+    }
+
+    function formatDate(dateString) {
+      const d = new Date(dateString);
+      return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+    }
+
+    window.aggiornaStato = async function(id, stato) {
+      const { error } = await supabase
+        .from('ferie')
+        .update({ stato })
+        .eq('id', id);
+
+      if (error) {
+        alert("Errore aggiornando la richiesta.");
+        console.error(error);
+      } else {
+        alert("Richiesta aggiornata.");
+        caricaRichieste();
+      }
+    }
+
+    caricaRichieste();
+  </script>
+</body>
+</html>

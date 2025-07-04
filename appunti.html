@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Appunti Personali</title>
+  <style>
+    body { font-family: Arial; background: #f9fdf9; padding: 20px; text-align: center; }
+    canvas { border: 1px solid #ccc; background: white; cursor: crosshair; }
+    textarea { margin-top: 10px; width: 600px; height: 100px; resize: none; }
+    select, input, button { margin: 5px; padding: 5px; }
+    .archivio { margin-top: 30px; }
+  </style>
+</head>
+<body>
+  <h2>📒 Appunti Personali</h2>
+  <button onclick="window.location.href='home.html'">🔙 Torna alla Home</button><br>
+
+  <canvas id="canvas" width="600" height="400"></canvas><br>
+  ✏️ Spessore: <input type="range" id="spessore" min="1" max="30" value="2">
+  🎨 Colore: <input type="color" id="colore" value="#000000">
+  <button onclick="modalita = 'penna'">✍️ Penna</button>
+  <button onclick="modalita = 'gomma'">🧼 Gomma</button>
+  <button onclick="modalita = 'evidenziatore'">🖍️ Evidenziatore</button>
+  <button onclick="cancellaCanvas()">🧹 Cancella tutto</button><br><br>
+
+  <textarea id="testo" placeholder="Scrivi il tuo appunto qui..."></textarea><br>
+  <button onclick="salvaAppunto()">💾 Salva Appunto</button>
+
+  <div class="archivio">
+    <h3>📁 I miei Appunti</h3>
+    <div id="elenco"></div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+    const supabase = createClient('https://lhwdoxwqhzskksjcuirj.supabase.co', 'YOUR_PUBLIC_ANON_KEY');
+    const utente = JSON.parse(localStorage.getItem("utenteLoggato"));
+    const userId = utente.id;
+
+    // canvas
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    let disegna = false;
+    let modalita = "penna";
+    let ultimaX, ultimaY;
+
+    canvas.addEventListener("mousedown", e => {
+      disegna = true;
+      [ultimaX, ultimaY] = [e.offsetX, e.offsetY];
+    });
+
+    canvas.addEventListener("mouseup", () => disegna = false);
+    canvas.addEventListener("mouseout", () => disegna = false);
+
+    canvas.addEventListener("mousemove", e => {
+      if (!disegna) return;
+      ctx.lineWidth = document.getElementById("spessore").value;
+      ctx.strokeStyle = modalita === "gomma" ? "#fff"
+                    : modalita === "evidenziatore" ? "rgba(255,255,0,0.4)"
+                    : document.getElementById("colore").value;
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(ultimaX, ultimaY);
+      ctx.lineTo(e.offsetX, e.offsetY);
+      ctx.stroke();
+      [ultimaX, ultimaY] = [e.offsetX, e.offsetY];
+    });
+
+    function cancellaCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    async function salvaAppunto() {
+      const testo = document.getElementById("testo").value;
+      const immagine = canvas.toDataURL("image/png");
+      const { error } = await supabase.from("appunti").insert({
+        user_id: userId,
+        testo,
+        immagine,
+        data: new Date().toISOString()
+      });
+      if (error) alert("Errore salvataggio");
+      else {
+        alert("Appunto salvato");
+        cancellaCanvas();
+        document.getElementById("testo").value = "";
+        caricaAppunti();
+      }
+    }
+
+    async function caricaAppunti() {
+      const { data } = await supabase.from("appunti").select("*").eq("user_id", userId).order("data", { ascending: false });
+      const contenitore = document.getElementById("elenco");
+      contenitore.innerHTML = "";
+      data.forEach(app => {
+        const blocco = document.createElement("div");
+        blocco.innerHTML = `
+          <p><b>${new Date(app.data).toLocaleString()}</b></p>
+          <img src="${app.immagine}" width="300"><br>
+          <textarea rows="4" cols="40" onchange="aggiornaTesto(${app.id}, this.value)">${app.testo}</textarea><br>
+          <button onclick="eliminaAppunto(${app.id})">🗑️ Elimina</button><hr>`;
+        contenitore.appendChild(blocco);
+      });
+    }
+
+    window.aggiornaTesto = async function(id, nuovoTesto) {
+      await supabase.from("appunti").update({ testo: nuovoTesto }).eq("id", id);
+    };
+
+    window.eliminaAppunto = async function(id) {
+      await supabase.from("appunti").delete().eq("id", id);
+      caricaAppunti();
+    };
+
+    caricaAppunti();
+  </script>
+</body>
+</html>
