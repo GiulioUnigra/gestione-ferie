@@ -49,36 +49,36 @@
   </div>
 
   <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-    const supabase = createClient(
-      'https://sauahmyekejigpbjrdug.supabase.co,
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhdWFobXlla2VqaWdwYmpyZHVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0Njc2OTcsImV4cCI6MjA2NzA0MzY5N30.JetFvFBwg1dy9AqyeSnTYalAuuIrPAyaFWzc8SRaxYo'
-    );
+  const supabase = createClient(
+    'https://TUO_PROGETTO.supabase.co',         // <- 🔁 aggiorna
+    'CHIAVE_ANON_PUBLICA_DA_SETTINGS'           // <- 🔁 aggiorna
+  );
 
-    window.loginUtente = async function () {
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value;
-      if (!email || !password) return alert("Inserisci email e password");
+  async function loginUtente() {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
 
-      const { data, error: loginError } = await supabase.auth.signInWithPassword({ email, password });
-      if (loginError) return alert("Credenziali errate o utente non trovato");
+    const { data: session, error: loginError } = await supabase.auth.signInWithPassword({ email, password });
 
-      const userId = data?.user?.id;
-      if (!userId) return alert("Login fallito: utente non identificato");
+    if (loginError) return alert("Credenziali errate o utente non trovato");
 
-      const { data: profilo, error: profiloError } = await supabase
-        .from("dipendenti")
-        .select("*")
-        .eq("id", userId)
-        .eq("attivo", true)
-        .single();
+    const { data: profilo, error: profiloError } = await supabase
+      .from("dipendenti")
+      .select("*")
+      .eq("id", session.user.id)
+      .eq("attivo", true)
+      .single();
 
-      if (profiloError || !profilo) return alert("Utente non trovato nella tabella dipendenti o non attivo");
+    if (profiloError || !profilo) return alert("Utente non trovato nella tabella dipendenti o non attivo");
 
-      localStorage.setItem("utenteLoggato", JSON.stringify(profilo));
-      window.location.href = "home.html";
-    }
+    localStorage.setItem("utenteLoggato", JSON.stringify(profilo));
+    window.location.href = "home.html";
+  }
+
+  // ⬇ NECESSARIO per collegarlo al bottone
+  window.loginUtente = loginUtente;
   </script>
 </body>
 </html>
