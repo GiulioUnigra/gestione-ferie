@@ -77,16 +77,7 @@
     <input id="cellulare" type="text">
 
     <label for="gruppo">Gruppo</label>
-    <select id="gruppo">
-      <option>Infoclienti</option>
-      <option>Oli</option>
-      <option>Contaminanti</option>
-      <option>Microbiologia</option>
-      <option>Allergeni</option>
-      <option>Confezionati</option>
-      <option>Materie Prime</option>
-      <option>Cioccolato</option>
-    </select>
+    <select id="gruppo"></select>
 
     <label for="ruolo">Ruolo</label>
     <select id="ruolo">
@@ -109,7 +100,7 @@
     <label for="ore_annuali">Monte ore annuali</label>
     <input id="ore_annuali" type="number" step="0.01">
 
-    <button onclick="salvaDipendente()">Salva Dipendente</button>
+    <button id="salva_btn">Salva Dipendente</button>
     <div id="messaggio" class="error"></div>
   </div>
 
@@ -124,6 +115,28 @@
     const utente = JSON.parse(localStorage.getItem("utenteLoggato"));
     const ruolo = utente.ruolo;
     const gruppiGestiti = Array.isArray(utente.gruppi_gestiti) ? utente.gruppi_gestiti : (utente.gruppi_gestiti || "").split(",").map(g => g.trim());
+
+    if (ruolo === "Analista") {
+      alert("Accesso non consentito.");
+      window.location.href = "home.html";
+    }
+
+    const tuttiIGruppi = [
+      "Infoclienti", "Oli", "Contaminanti", "Microbiologia",
+      "Allergeni", "Confezionati", "Materie Prime", "Cioccolato"
+    ];
+
+    function popolaGruppiSelect() {
+      const select = document.getElementById("gruppo");
+      select.innerHTML = "";
+      const gruppiDaMostrare = ruolo === "Referente" ? gruppiGestiti : tuttiIGruppi;
+      gruppiDaMostrare.forEach(gr => {
+        const opt = document.createElement("option");
+        opt.value = gr;
+        opt.textContent = gr;
+        select.appendChild(opt);
+      });
+    }
 
     async function caricaDipendenti() {
       let query = supabase.from("dipendenti").select("id, nome, gruppo").eq("attivo", true);
@@ -171,6 +184,18 @@
         ore_annuali: parseFloat(document.getElementById("ore_annuali").value || 0),
         attivo: true
       };
+
+      if (ruolo === "Referente") {
+        if (!gruppiGestiti.includes(nuovoDip.gruppo)) {
+          messaggio.textContent = "Non puoi modificare dipendenti fuori dai tuoi gruppi.";
+          return;
+        }
+        if (nuovoDip.ruolo !== "Analista") {
+          messaggio.textContent = "Puoi creare solo profili Analista.";
+          return;
+        }
+      }
+
       let result;
       if (id) {
         result = await supabase.from("dipendenti").update(nuovoDip).eq("id", id);
@@ -186,6 +211,9 @@
       }
     }
 
+    document.getElementById("salva_btn").addEventListener("click", salvaDipendente);
+
+    popolaGruppiSelect();
     caricaDipendenti();
   </script>
 </body>
