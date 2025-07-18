@@ -19,18 +19,7 @@
       max-width: 500px;
       margin: 0 auto 20px;
       padding: 20px;
-      display: flex;
-      align-items: center;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-    }
-    .profilo-icona {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      background-size: cover;
-      background-position: center;
-      margin-right: 20px;
-      cursor: pointer;
     }
     .profilo-info {
       text-align: left;
@@ -51,31 +40,7 @@
     button:hover {
       background-color: #45a049;
     }
-    table {
-      margin: 0 auto;
-      border-collapse: collapse;
-      width: 90%;
-      max-width: 1000px;
-    }
-    th, td {
-      padding: 10px;
-      border: 1px solid #ccc;
-    }
-    th {
-      background-color: #d2f5d2;
-    }
     .hidden {
-      display: none;
-    }
-    .gruppo-header {
-      background-color: #eef8ee;
-      font-weight: bold;
-    }
-    .referente-row {
-      background-color: #f0fcf0;
-      font-style: italic;
-    }
-    #uploadFoto {
       display: none;
     }
   </style>
@@ -83,7 +48,6 @@
 <body>
   <h2>🏠 Benvenuto in Gestione Ferie</h2>
   <div id="profilo_personale"></div>
-  <input type="file" id="uploadFoto" accept="image/*">
   <div class="moduli" id="bottoni_moduli"></div>
   <button id="mostra_tabella" class="hidden">👥 Visualizza Dipendenti</button>
   <div id="tabella_dipendenti" class="hidden"></div>
@@ -98,11 +62,9 @@
     );
 
     const utente = JSON.parse(localStorage.getItem("utenteLoggato"));
-    const idUtente = utente?.id;
-    const ruolo = utente?.ruolo;
-    const gruppiGestiti = Array.isArray(utente?.gruppi_gestiti) ? utente.gruppi_gestiti : (utente?.gruppi_gestiti || "").split(",").map(g => g.trim());
-
     if (!utente) location.href = 'login.html';
+    const idUtente = utente.id;
+    const ruolo = utente.ruolo;
 
     const oggi = new Date();
     if (oggi.getMonth() === 0 && oggi.getDate() === 1) aggiornaMonteOreAnnuale();
@@ -116,13 +78,11 @@
     }
 
     async function caricaProfilo() {
-      const { data } = await supabase.from("dipendenti").select("nome, ruolo, gruppo, ore_disponibili, ore_fruite, foto_profilo").eq("id", idUtente).single();
+      const { data } = await supabase.from("dipendenti").select("nome, ruolo, gruppo, ore_disponibili, ore_fruite").eq("id", idUtente).single();
       if (!data) return;
 
-      const foto = data.foto_profilo || "https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Sample_User_Icon.png/480px-Sample_User_Icon.png";
       document.getElementById("profilo_personale").innerHTML = `
         <div class="profilo-card">
-          <div class="profilo-icona" style="background-image: url('${foto}')" onclick="document.getElementById('uploadFoto').click()"></div>
           <div class="profilo-info">
             <div>👤 <strong>Nome:</strong> ${data.nome}</div>
             <div>🛡️ <strong>Ruolo:</strong> ${data.ruolo}</div>
@@ -132,20 +92,6 @@
           </div>
         </div>`;
     }
-
-    async function uploadFoto() {
-      const input = document.getElementById("uploadFoto");
-      const file = input.files[0];
-      if (!file) return;
-      const { error } = await supabase.storage.from("profili").upload(`foto/${idUtente}`, file, { upsert: true });
-      if (!error) {
-        const url = supabase.storage.from("profili").getPublicUrl(`foto/${idUtente}`).data.publicUrl;
-        await supabase.from("dipendenti").update({ foto_profilo: url }).eq("id", idUtente);
-        caricaProfilo();
-      }
-    }
-
-    document.getElementById("uploadFoto").addEventListener("change", uploadFoto);
 
     function creaBottoni() {
       const moduli = [];
