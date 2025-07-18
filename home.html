@@ -1,23 +1,84 @@
-
 <!DOCTYPE html>
 <html lang="it">
 <head>
   <meta charset="UTF-8">
   <title>Home - Gestione Ferie</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f9fdf9; text-align: center; padding: 20px; }
-    table { margin: 0 auto; border-collapse: collapse; width: 80%; max-width: 800px; }
-    th, td { padding: 10px; border: 1px solid #ccc; }
-    th { background-color: #d2f5d2; }
-    button { margin: 10px; padding: 10px 20px; background-color: #4CAF50; color: white; border: none; cursor: pointer; border-radius: 5px; }
-    button:hover { background-color: #45a049; }
-    .moduli { margin-top: 30px; }
-    .hidden { display: none; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9fdf9;
+      padding: 20px;
+    }
+    h2 {
+      text-align: center;
+    }
+    .profilo-card {
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      max-width: 500px;
+      margin: 0 auto 20px;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+    .profilo-card img {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-right: 20px;
+    }
+    .profilo-info {
+      text-align: left;
+    }
+    .moduli {
+      text-align: center;
+      margin: 20px 0;
+    }
+    button {
+      margin: 5px;
+      padding: 10px 20px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    table {
+      margin: 0 auto;
+      border-collapse: collapse;
+      width: 90%;
+      max-width: 1000px;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ccc;
+    }
+    th {
+      background-color: #d2f5d2;
+    }
+    .hidden {
+      display: none;
+    }
+    .gruppo-header {
+      background-color: #eef8ee;
+      font-weight: bold;
+    }
+    .referente-row {
+      background-color: #f0fcf0;
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
   <h2>🏠 Benvenuto in Gestione Ferie</h2>
   <div id="profilo_personale"></div>
+  <input type="file" id="uploadFoto" accept="image/*">
   <div class="moduli" id="bottoni_moduli"></div>
   <button id="mostra_tabella" class="hidden">👥 Visualizza Dipendenti</button>
   <div id="tabella_dipendenti" class="hidden"></div>
@@ -25,7 +86,7 @@
 
   <script type="module">
     import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-   
+
     const supabase = createClient(
       'https://sauahmyekejigpbjrdug.supabase.co',
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhdWFobXlla2VqaWdwYmpyZHVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0Njc2OTcsImV4cCI6MjA2NzA0MzY5N30.JetFvFBwg1dy9AqyeSnTYalAuuIrPAyaFWzc8SRaxYo'
@@ -38,16 +99,6 @@
 
     document.getElementById("mostra_tabella").classList.toggle("hidden", ruolo === "Analista");
 
-    function creaRiga(d) {
-      return `
-        <tr>
-          <td title="${d.ferie_mensili || ''}">${d.nome}</td>
-          <td>${d.gruppo}</td>
-          <td>${d.tipo_turno}</td>
-          <td>${d.ore_disponibili || '-'}</td>
-        </tr>`;
-    }
-
     async function caricaProfilo() {
       const { data } = await supabase.from("dipendenti").select("*").eq("id", idUtente).single();
       const { data: ferie } = await supabase.from("ferie").select("inizio, ore").eq("dipendente_id", idUtente).eq("stato", "Approvata");
@@ -57,44 +108,63 @@
         perMese[mese] = (perMese[mese] || 0) + f.ore;
       });
       const tooltip = Object.entries(perMese).map(([m, v]) => `${m}: ${v}h`).join('\n');
+      const foto = data.foto || 'https://via.placeholder.com/80';
+
       document.getElementById("profilo_personale").innerHTML = `
-        <table><thead><tr><th>Nome</th><th>Gruppo</th><th>Tipo Turno</th><th>Ore Disponibili</th></tr></thead>
-        <tbody><tr title="${tooltip}">
-          <td>${data.nome}</td>
-          <td>${data.gruppo}</td>
-          <td>${data.tipo_turno}</td>
-          <td>${data.ore_disponibili || '-'}</td>
-        </tr></tbody></table>`;
+        <div class="profilo-card" title="${tooltip}">
+          <img src="${foto}" alt="Foto profilo">
+          <div class="profilo-info">
+            <div><strong>${data.nome}</strong></div>
+            <div>Gruppo: ${data.gruppo}</div>
+            <div>Turno: ${data.tipo_turno}</div>
+            <div>Ore disponibili: ${data.ore_disponibili || '-'}</div>
+          </div>
+        </div>`;
     }
 
     async function caricaDipendenti() {
-      let filtro = supabase.from("dipendenti").select("*").eq("attivo", true);
-      if (ruolo === "Referente") {
-        filtro = filtro.in("gruppo", gruppiGestiti);
-      }
-      const { data } = await filtro;
+      const { data: dipendenti } = await supabase.from("dipendenti").select("*").eq("attivo", true);
       const { data: ferie } = await supabase.from("ferie").select("dipendente_id, inizio, ore").eq("stato", "Approvata");
 
       const ferieMappa = {};
       ferie.forEach(f => {
         const mese = new Date(f.inizio).toLocaleString('it-IT', { month: 'long' });
-        const id = f.dipendente_id;
-        ferieMappa[id] = ferieMappa[id] || {};
-        ferieMappa[id][mese] = (ferieMappa[id][mese] || 0) + f.ore;
+        ferieMappa[f.dipendente_id] = ferieMappa[f.dipendente_id] || {};
+        ferieMappa[f.dipendente_id][mese] = (ferieMappa[f.dipendente_id][mese] || 0) + f.ore;
       });
 
+      const gruppi = ["Infoclienti", "Oli", "Contaminanti", "Microbiologia", "Allergeni", "Confezionati", "Materie Prime", "Cioccolato"];
+
       let html = `<table><thead><tr><th>Nome</th><th>Gruppo</th><th>Tipo Turno</th><th>Ore Disponibili</th></tr></thead><tbody>`;
-      for (const d of data) {
-        const ferieTooltip = ferieMappa[d.id]
-          ? Object.entries(ferieMappa[d.id]).map(([m, v]) => `${m}: ${v}h`).join('\n')
-          : '';
-        html += `<tr title="${ferieTooltip}">
-          <td>${d.nome}</td><td>${d.gruppo}</td><td>${d.tipo_turno}</td><td>${d.ore_disponibili || '-'}</td>
-        </tr>`;
-      }
+
+      gruppi.forEach(gr => {
+        html += `<tr class='gruppo-header'><td colspan="4">${gr}</td></tr>`;
+        const referenti = dipendenti.filter(d => d.ruolo === "Referente" && d.gruppi_gestiti?.includes(gr));
+        referenti.forEach(ref => {
+          html += `<tr class='referente-row'><td colspan="4">Referente: ${ref.nome}</td></tr>`;
+          dipendenti.filter(d => d.gruppo === gr && d.ruolo === "Analista").forEach(d => {
+            const ferieTooltip = ferieMappa[d.id]
+              ? Object.entries(ferieMappa[d.id]).map(([m, v]) => `${m}: ${v}h`).join('\n')
+              : '';
+            html += `<tr title="${ferieTooltip}"><td>${d.nome}</td><td>${d.gruppo}</td><td>${d.tipo_turno}</td><td>${d.ore_disponibili || '-'}</td></tr>`;
+          });
+        });
+      });
+
       html += "</tbody></table>";
       document.getElementById("tabella_dipendenti").innerHTML = html;
     }
+
+    document.getElementById("uploadFoto").addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const { data, error } = await supabase.storage.from("profili").upload(`foto/${idUtente}`, file, { upsert: true });
+      if (!error) {
+        const url = supabase.storage.from("profili").getPublicUrl(`foto/${idUtente}`).data.publicUrl;
+        await supabase.from("dipendenti").update({ foto: url }).eq("id", idUtente);
+        caricaProfilo();
+      }
+    });
 
     function creaBottoni() {
       const moduli = [];
@@ -115,7 +185,6 @@
         moduli.push(["📦", "Archiviazione", "archiviazione.html"]);
       }
       moduli.push(["🔓", "Logout", "logout.html"]);
-
       document.getElementById("bottoni_moduli").innerHTML = moduli.map(
         ([icon, label, link]) => `<button onclick="window.location.href='${link}'">${icon} ${label}</button>`
       ).join("");
