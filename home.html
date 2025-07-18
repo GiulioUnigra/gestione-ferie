@@ -13,9 +13,9 @@
       text-align: center;
     }
     .profilo-card {
-      background: #fff;
+      background: #f3fdf3;
       border: 1px solid #ccc;
-      border-radius: 10px;
+      border-radius: 20px;
       max-width: 500px;
       margin: 0 auto 20px;
       padding: 20px;
@@ -23,12 +23,14 @@
       align-items: center;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
     }
-    .profilo-card img {
+    .profilo-icona {
       width: 80px;
       height: 80px;
       border-radius: 50%;
-      object-fit: cover;
+      background-size: cover;
+      background-position: center;
       margin-right: 20px;
+      cursor: pointer;
     }
     .profilo-info {
       text-align: left;
@@ -73,6 +75,9 @@
       background-color: #f0fcf0;
       font-style: italic;
     }
+    #uploadFoto {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -93,78 +98,51 @@
     );
 
     const utente = JSON.parse(localStorage.getItem("utenteLoggato"));
-    const ruolo = utente.ruolo;
     const idUtente = utente.id;
+    const ruolo = utente.ruolo;
     const gruppiGestiti = Array.isArray(utente.gruppi_gestiti) ? utente.gruppi_gestiti : (utente.gruppi_gestiti || "").split(",").map(g => g.trim());
 
-    document.getElementById("mostra_tabella").classList.toggle("hidden", ruolo === "Analista");
+    const oggi = new Date();
+    if (oggi.getMonth() === 0 && oggi.getDate() === 1) aggiornaMonteOreAnnuale();
+
+    async function aggiornaMonteOreAnnuale() {
+      const { data } = await supabase.from("dipendenti").select("id, ore_disponibili, ore_annuali");
+      for (const d of data) {
+        const nuovoResiduo = d.ore_disponibili + d.ore_annuali;
+        await supabase.from("dipendenti").update({ ore_disponibili: nuovoResiduo }).eq("id", d.id);
+      }
+    }
 
     async function caricaProfilo() {
-      const { data } = await supabase.from("dipendenti").select("*").eq("id", idUtente).single();
-      const { data: ferie } = await supabase.from("ferie").select("inizio, ore").eq("dipendente_id", idUtente).eq("stato", "Approvata");
-      const perMese = {};
-      ferie.forEach(f => {
-        const mese = new Date(f.inizio).toLocaleString('it-IT', { month: 'long' });
-        perMese[mese] = (perMese[mese] || 0) + f.ore;
-      });
-      const tooltip = Object.entries(perMese).map(([m, v]) => `${m}: ${v}h`).join('\n');
-      const foto = data.foto || 'https://via.placeholder.com/80';
+      const { data } = await supabase.from("dipendenti").select("nome, ruolo, gruppo, ore_disponibili, ore_fruite, foto_profilo").eq("id", idUtente).single();
+      const foto = data.foto_profilo || "https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Sample_User_Icon.png/480px-Sample_User_Icon.png";
 
       document.getElementById("profilo_personale").innerHTML = `
-        <div class="profilo-card" title="${tooltip}">
-          <img src="${foto}" alt="Foto profilo">
+        <div class="profilo-card">
+          <div class="profilo-icona" style="background-image: url('${foto}')" onclick="document.getElementById('uploadFoto').click()"></div>
           <div class="profilo-info">
-            <div><strong>${data.nome}</strong></div>
-            <div>Gruppo: ${data.gruppo}</div>
-            <div>Turno: ${data.tipo_turno}</div>
-            <div>Ore disponibili: ${data.ore_disponibili || '-'}</div>
+            <div>👤 <strong>Nome:</strong> ${data.nome}</div>
+            <div>🛡️ <strong>Ruolo:</strong> ${data.ruolo}</div>
+            <div>👥 <strong>Gruppo:</strong> ${data.gruppo}</div>
+            <div>📊 <strong>Ore residue:</strong> ${data.ore_disponibili}</div>
+            <div>📉 <strong>Ore fruite:</strong> ${data.ore_fruite}</div>
           </div>
         </div>`;
     }
 
-    async function caricaDipendenti() {
-      const { data: dipendenti } = await supabase.from("dipendenti").select("*").eq("attivo", true);
-      const { data: ferie } = await supabase.from("ferie").select("dipendente_id, inizio, ore").eq("stato", "Approvata");
-
-      const ferieMappa = {};
-      ferie.forEach(f => {
-        const mese = new Date(f.inizio).toLocaleString('it-IT', { month: 'long' });
-        ferieMappa[f.dipendente_id] = ferieMappa[f.dipendente_id] || {};
-        ferieMappa[f.dipendente_id][mese] = (ferieMappa[f.dipendente_id][mese] || 0) + f.ore;
-      });
-
-      const gruppi = ["Infoclienti", "Oli", "Contaminanti", "Microbiologia", "Allergeni", "Confezionati", "Materie Prime", "Cioccolato"];
-
-      let html = `<table><thead><tr><th>Nome</th><th>Gruppo</th><th>Tipo Turno</th><th>Ore Disponibili</th></tr></thead><tbody>`;
-
-      gruppi.forEach(gr => {
-        html += `<tr class='gruppo-header'><td colspan="4">${gr}</td></tr>`;
-        const referenti = dipendenti.filter(d => d.ruolo === "Referente" && d.gruppi_gestiti?.includes(gr));
-        referenti.forEach(ref => {
-          html += `<tr class='referente-row'><td colspan="4">Referente: ${ref.nome}</td></tr>`;
-          dipendenti.filter(d => d.gruppo === gr && d.ruolo === "Analista").forEach(d => {
-            const ferieTooltip = ferieMappa[d.id]
-              ? Object.entries(ferieMappa[d.id]).map(([m, v]) => `${m}: ${v}h`).join('\n')
-              : '';
-            html += `<tr title="${ferieTooltip}"><td>${d.nome}</td><td>${d.gruppo}</td><td>${d.tipo_turno}</td><td>${d.ore_disponibili || '-'}</td></tr>`;
-          });
-        });
-      });
-
-      html += "</tbody></table>";
-      document.getElementById("tabella_dipendenti").innerHTML = html;
-    }
-
-    document.getElementById("uploadFoto").addEventListener("change", async (e) => {
-      const file = e.target.files[0];
+    async function uploadFoto() {
+      const input = document.getElementById("uploadFoto");
+      const file = input.files[0];
       if (!file) return;
       const { data, error } = await supabase.storage.from("profili").upload(`foto/${idUtente}`, file, { upsert: true });
       if (!error) {
         const url = supabase.storage.from("profili").getPublicUrl(`foto/${idUtente}`).data.publicUrl;
-        await supabase.from("dipendenti").update({ foto: url }).eq("id", idUtente);
+        await supabase.from("dipendenti").update({ foto_profilo: url }).eq("id", idUtente);
         caricaProfilo();
       }
-    });
+    }
+
+    document.getElementById("uploadFoto").addEventListener("change", uploadFoto);
 
     function creaBottoni() {
       const moduli = [];
@@ -185,6 +163,7 @@
         moduli.push(["📦", "Archiviazione", "archiviazione.html"]);
       }
       moduli.push(["🔓", "Logout", "logout.html"]);
+
       document.getElementById("bottoni_moduli").innerHTML = moduli.map(
         ([icon, label, link]) => `<button onclick="window.location.href='${link}'">${icon} ${label}</button>`
       ).join("");
@@ -196,7 +175,6 @@
       document.getElementById("mostra_tabella").classList.add("hidden");
       document.getElementById("tabella_dipendenti").classList.remove("hidden");
       document.getElementById("torna_profilo").classList.remove("hidden");
-      caricaDipendenti();
     };
 
     document.getElementById("torna_profilo").onclick = () => {
