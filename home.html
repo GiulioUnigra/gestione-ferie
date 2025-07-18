@@ -43,6 +43,27 @@
     .hidden {
       display: none;
     }
+    table {
+      margin: 0 auto;
+      border-collapse: collapse;
+      width: 90%;
+      max-width: 1000px;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ccc;
+    }
+    th {
+      background-color: #d2f5d2;
+    }
+    .gruppo-header {
+      background-color: #eef8ee;
+      font-weight: bold;
+    }
+    .referente-row {
+      background-color: #f0fcf0;
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
@@ -87,10 +108,43 @@
             <div>👤 <strong>Nome:</strong> ${data.nome}</div>
             <div>🛡️ <strong>Ruolo:</strong> ${data.ruolo}</div>
             <div>👥 <strong>Gruppo:</strong> ${data.gruppo}</div>
-            <div>📊 <strong>Ore residue:</strong> ${data.ore_disponibili || 0}</div>
-            <div>📉 <strong>Ore fruite:</strong> ${data.ore_fruite || 0}</div>
+            <div>📊 <strong>Ore residue:</strong> ${(data.ore_disponibili || 0).toFixed(2)}</div>
+            <div>📉 <strong>Ore fruite:</strong> ${(data.ore_fruite || 0).toFixed(2)}</div>
           </div>
         </div>`;
+    }
+
+    async function caricaDipendenti() {
+      const { data: dipendenti } = await supabase.from("dipendenti").select("*").eq("attivo", true);
+      const { data: ferie } = await supabase.from("ferie").select("dipendente_id, inizio, ore").eq("stato", "Approvata");
+
+      const ferieMappa = {};
+      ferie.forEach(f => {
+        const mese = new Date(f.inizio).toLocaleString('it-IT', { month: 'long' });
+        ferieMappa[f.dipendente_id] = ferieMappa[f.dipendente_id] || {};
+        ferieMappa[f.dipendente_id][mese] = (ferieMappa[f.dipendente_id][mese] || 0) + f.ore;
+      });
+
+      const gruppi = ["Infoclienti", "Oli", "Contaminanti", "Microbiologia", "Allergeni", "Confezionati", "Materie Prime", "Cioccolato"];
+
+      let html = `<table><thead><tr><th>Nome</th><th>Gruppo</th><th>Tipo Turno</th><th>Ore Residue</th><th>Ore Fruite</th></tr></thead><tbody>`;
+
+      gruppi.forEach(gr => {
+        html += `<tr class='gruppo-header'><td colspan="5">${gr}</td></tr>`;
+        const referenti = dipendenti.filter(d => d.ruolo === "Referente" && d.gruppi_gestiti?.includes(gr));
+        referenti.forEach(ref => {
+          html += `<tr class='referente-row'><td colspan="5">Referente: ${ref.nome}</td></tr>`;
+          dipendenti.filter(d => d.gruppo === gr && d.ruolo === "Analista").forEach(d => {
+            const ferieTooltip = ferieMappa[d.id]
+              ? Object.entries(ferieMappa[d.id]).map(([m, v]) => `${m}: ${v.toFixed(2)}h`).join('\n')
+              : '';
+            html += `<tr title="${ferieTooltip}"><td>${d.nome}</td><td>${d.gruppo}</td><td>${d.tipo_turno}</td><td>${(d.ore_disponibili || 0).toFixed(2)}</td><td>${(d.ore_fruite || 0).toFixed(2)}</td></tr>`;
+          });
+        });
+      });
+
+      html += "</tbody></table>";
+      document.getElementById("tabella_dipendenti").innerHTML = html;
     }
 
     function creaBottoni() {
@@ -116,6 +170,10 @@
       document.getElementById("bottoni_moduli").innerHTML = moduli.map(
         ([icon, label, link]) => `<button onclick="window.location.href='${link}'">${icon} ${label}</button>`
       ).join("");
+
+      if (["Referente", "Responsabile", "Viceresponsabile"].includes(ruolo)) {
+        document.getElementById("mostra_tabella").classList.remove("hidden");
+      }
     }
 
     document.getElementById("mostra_tabella").onclick = () => {
@@ -124,6 +182,7 @@
       document.getElementById("mostra_tabella").classList.add("hidden");
       document.getElementById("tabella_dipendenti").classList.remove("hidden");
       document.getElementById("torna_profilo").classList.remove("hidden");
+      caricaDipendenti();
     };
 
     document.getElementById("torna_profilo").onclick = () => {
