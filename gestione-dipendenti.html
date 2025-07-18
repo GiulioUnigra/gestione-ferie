@@ -113,8 +113,8 @@
     );
 
     const utente = JSON.parse(localStorage.getItem("utenteLoggato"));
-    const ruolo = utente.ruolo;
-    const gruppiGestiti = Array.isArray(utente.gruppi_gestiti) ? utente.gruppi_gestiti : (utente.gruppi_gestiti || "").split(",").map(g => g.trim());
+    const ruolo = utente?.ruolo;
+    const gruppiGestiti = Array.isArray(utente?.gruppi_gestiti) ? utente.gruppi_gestiti : (utente?.gruppi_gestiti || "").split(",").map(g => g.trim());
 
     if (ruolo === "Analista") {
       alert("Accesso non consentito.");
@@ -141,8 +141,12 @@
     async function caricaDipendenti() {
       let query = supabase.from("dipendenti").select("id, nome, gruppo").eq("attivo", true);
       if (ruolo === "Referente") query = query.in("gruppo", gruppiGestiti);
-      const { data } = await query;
+      const { data, error } = await query;
       const select = document.getElementById("dipendente_selezionato");
+      if (error) {
+        document.getElementById("messaggio").textContent = "Errore caricamento: " + error.message;
+        return;
+      }
       data.forEach(d => {
         const opt = document.createElement("option");
         opt.value = d.id;
@@ -154,7 +158,11 @@
     document.getElementById("dipendente_selezionato").addEventListener("change", async (e) => {
       const id = e.target.value;
       if (!id) return;
-      const { data } = await supabase.from("dipendenti").select("*").eq("id", id).single();
+      const { data, error } = await supabase.from("dipendenti").select("*").eq("id", id).single();
+      if (error) {
+        document.getElementById("messaggio").textContent = "Errore caricamento: " + error.message;
+        return;
+      }
       document.getElementById("nome").value = data.nome;
       document.getElementById("email").value = data.email;
       document.getElementById("password").value = data.password;
