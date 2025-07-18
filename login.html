@@ -1,7 +1,7 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Login - Gestione Ferie</title>
   <style>
     body {
@@ -19,10 +19,7 @@
       box-shadow: 0 0 8px #ccc;
       width: 300px;
     }
-    h2 {
-      text-align: center;
-      color: #2a5d3c;
-    }
+    h2 { text-align: center; color: #2a5d3c; }
     input, button {
       width: 100%;
       padding: 10px;
@@ -43,42 +40,53 @@
 <body>
   <div class="login-box">
     <h2>🔐 Login</h2>
-    <input id="email" type="email" placeholder="Email">
-    <input id="password" type="password" placeholder="Password">
-    <button onclick="loginUtente()">Accedi</button>
+    <input id="email" type="email" placeholder="Email" />
+    <input id="password" type="password" placeholder="Password" />
+    <button id="loginBtn">Accedi</button>
   </div>
 
   <script type="module">
-     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-  const supabase = createClient(
-    'https://sauahmyekejigpbjrdug.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhdWFobXlla2VqaWdwYmpyZHVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0Njc2OTcsImV4cCI6MjA2NzA0MzY5N30.JetFvFBwg1dy9AqyeSnTYalAuuIrPAyaFWzc8SRaxYo'           // <- 🔁 aggiorna
-  );
+    const supabase = createClient(
+      'https://sauahmyekejigpbjrdug.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhdWFobXlla2VqaWdwYmpyZHVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0Njc2OTcsImV4cCI6MjA2NzA0MzY5N30.JetFvFBwg1dy9AqyeSnTYalAuuIrPAyaFWzc8SRaxYo'
+    );
 
-  async function loginUtente() {
-    const email = document.getElementById("email").value.trim();
-    const password = document.getElementById("password").value;
+    document.getElementById("loginBtn").addEventListener("click", async () => {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
 
-    const { data: session, error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+      if (!email || !password) {
+        alert("Inserisci email e password");
+        return;
+      }
 
-    if (loginError) return alert("Credenziali errate o utente non trovato");
+      const { data: session, error: loginError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    const { data: profilo, error: profiloError } = await supabase
-      .from("dipendenti")
-      .select("*")
-      .eq("id", session.user.id)
-      .eq("attivo", true)
-      .single();
+      if (loginError || !session.user) {
+        alert("Credenziali errate o utente non trovato");
+        return;
+      }
 
-    if (profiloError || !profilo) return alert("Utente non trovato nella tabella dipendenti o non attivo");
+      const { data: profilo, error: profiloError } = await supabase
+        .from("dipendenti")
+        .select("*")
+        .eq("id", session.user.id)
+        .eq("attivo", true)
+        .single();
 
-    localStorage.setItem("utenteLoggato", JSON.stringify(profilo));
-    window.location.href = "home.html";
-  }
+      if (profiloError || !profilo) {
+        alert("Utente non trovato nella tabella dipendenti o non attivo");
+        return;
+      }
 
-  // ⬇ NECESSARIO per collegarlo al bottone
-  window.loginUtente = loginUtente;
+      localStorage.setItem("utenteLoggato", JSON.stringify(profilo));
+      window.location.href = "home.html";
+    });
   </script>
 </body>
 </html>
