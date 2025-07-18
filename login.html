@@ -88,5 +88,50 @@
       window.location.href = "home.html";
     });
   </script>
+ <script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+  const supabase = createClient(
+    'https://sauahmyekejigpbjrdug.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhdWFobXlla2VqaWdwYmpyZHVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0Njc2OTcsImV4cCI6MjA2NzA0MzY5N30.JetFvFBwg1dy9AqyeSnTYalAuuIrPAyaFWzc8SRaxYo'
+  );
+
+  const debugLogin = async () => {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+
+    const { data: sessionData, error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (loginError) {
+      console.error("❌ Login error:", loginError);
+      return;
+    }
+
+    const user = sessionData.user;
+    console.log("✅ Utente loggato con UID:", user.id);
+
+    // Test: leggere tutti i dipendenti (solo per debug, se la policy lo consente)
+    const { data: allDipendenti, error: allError } = await supabase
+      .from("dipendenti")
+      .select("*");
+
+    console.log("📋 Lista completa dipendenti (se permesso)", allDipendenti, allError);
+
+    // Test: leggere solo la riga dell’utente loggato
+    const { data: mioProfilo, error: mioErrore } = await supabase
+      .from("dipendenti")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+
+    if (mioErrore) {
+      console.error("❌ ERRORE nel recupero del profilo:", mioErrore);
+    } else {
+      console.log("✅ PROFILO TROVATO:", mioProfilo);
+    }
+  };
+
+  window.debugLogin = debugLogin;
+</script>
 </body>
 </html>
