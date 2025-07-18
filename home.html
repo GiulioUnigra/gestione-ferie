@@ -98,9 +98,11 @@
     );
 
     const utente = JSON.parse(localStorage.getItem("utenteLoggato"));
-    const idUtente = utente.id;
-    const ruolo = utente.ruolo;
-    const gruppiGestiti = Array.isArray(utente.gruppi_gestiti) ? utente.gruppi_gestiti : (utente.gruppi_gestiti || "").split(",").map(g => g.trim());
+    const idUtente = utente?.id;
+    const ruolo = utente?.ruolo;
+    const gruppiGestiti = Array.isArray(utente?.gruppi_gestiti) ? utente.gruppi_gestiti : (utente?.gruppi_gestiti || "").split(",").map(g => g.trim());
+
+    if (!utente) location.href = 'login.html';
 
     const oggi = new Date();
     if (oggi.getMonth() === 0 && oggi.getDate() === 1) aggiornaMonteOreAnnuale();
@@ -108,15 +110,16 @@
     async function aggiornaMonteOreAnnuale() {
       const { data } = await supabase.from("dipendenti").select("id, ore_disponibili, ore_annuali");
       for (const d of data) {
-        const nuovoResiduo = d.ore_disponibili + d.ore_annuali;
+        const nuovoResiduo = (d.ore_disponibili || 0) + (d.ore_annuali || 0);
         await supabase.from("dipendenti").update({ ore_disponibili: nuovoResiduo }).eq("id", d.id);
       }
     }
 
     async function caricaProfilo() {
       const { data } = await supabase.from("dipendenti").select("nome, ruolo, gruppo, ore_disponibili, ore_fruite, foto_profilo").eq("id", idUtente).single();
-      const foto = data.foto_profilo || "https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Sample_User_Icon.png/480px-Sample_User_Icon.png";
+      if (!data) return;
 
+      const foto = data.foto_profilo || "https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Sample_User_Icon.png/480px-Sample_User_Icon.png";
       document.getElementById("profilo_personale").innerHTML = `
         <div class="profilo-card">
           <div class="profilo-icona" style="background-image: url('${foto}')" onclick="document.getElementById('uploadFoto').click()"></div>
@@ -124,8 +127,8 @@
             <div>👤 <strong>Nome:</strong> ${data.nome}</div>
             <div>🛡️ <strong>Ruolo:</strong> ${data.ruolo}</div>
             <div>👥 <strong>Gruppo:</strong> ${data.gruppo}</div>
-            <div>📊 <strong>Ore residue:</strong> ${data.ore_disponibili}</div>
-            <div>📉 <strong>Ore fruite:</strong> ${data.ore_fruite}</div>
+            <div>📊 <strong>Ore residue:</strong> ${data.ore_disponibili || 0}</div>
+            <div>📉 <strong>Ore fruite:</strong> ${data.ore_fruite || 0}</div>
           </div>
         </div>`;
     }
@@ -134,7 +137,7 @@
       const input = document.getElementById("uploadFoto");
       const file = input.files[0];
       if (!file) return;
-      const { data, error } = await supabase.storage.from("profili").upload(`foto/${idUtente}`, file, { upsert: true });
+      const { error } = await supabase.storage.from("profili").upload(`foto/${idUtente}`, file, { upsert: true });
       if (!error) {
         const url = supabase.storage.from("profili").getPublicUrl(`foto/${idUtente}`).data.publicUrl;
         await supabase.from("dipendenti").update({ foto_profilo: url }).eq("id", idUtente);
