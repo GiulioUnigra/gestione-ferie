@@ -36,9 +36,24 @@
       color: red;
       text-align: center;
     }
+    .back-home {
+      display: block;
+      width: fit-content;
+      margin: 0 auto 20px auto;
+      text-align: center;
+      padding: 8px 16px;
+      background-color: #ccc;
+      color: #000;
+      border-radius: 5px;
+      text-decoration: none;
+    }
+    .back-home:hover {
+      background-color: #bbb;
+    }
   </style>
 </head>
 <body>
+  <a href="home.html" class="back-home">⬅ Torna alla Home</a>
   <h2>🧑‍💼 Gestione Dipendenti</h2>
   <div class="container">
     <label for="dipendente_selezionato">Modifica dipendente</label>
@@ -111,11 +126,8 @@
     const gruppiGestiti = Array.isArray(utente.gruppi_gestiti) ? utente.gruppi_gestiti : (utente.gruppi_gestiti || "").split(",").map(g => g.trim());
 
     async function caricaDipendenti() {
-      const filtro = ruolo === "Responsabile" || ruolo === "Viceresponsabile"
-        ? {}
-        : { gruppo: gruppiGestiti };
-      const query = supabase.from("dipendenti").select("id, nome, gruppo").eq("attivo", true);
-      if (filtro.gruppo) query.in("gruppo", filtro.gruppo);
+      let query = supabase.from("dipendenti").select("id, nome, gruppo").eq("attivo", true);
+      if (ruolo === "Referente") query = query.in("gruppo", gruppiGestiti);
       const { data } = await query;
       const select = document.getElementById("dipendente_selezionato");
       data.forEach(d => {
