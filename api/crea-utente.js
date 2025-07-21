@@ -3,7 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { autoRefreshToken: false, persistSession: false } }
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
 );
 
 export default async function handler(req, res) {
@@ -13,6 +18,7 @@ export default async function handler(req, res) {
 
   const { email, password, ...profilo } = req.body;
 
+  // 1. Creazione utente in auth
   const { data: user, error: authError } = await supabase.auth.admin.createUser({
     email,
     password,
@@ -23,13 +29,16 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Errore creazione Auth: ' + authError.message });
   }
 
-  const { error: dbError } = await supabase.from('dipendenti').insert({
-    id: user.user.id,
-    email,
-    password,
-    ...profilo,
-    attivo: true
-  });
+  // 2. Inserimento in tabella "dipendenti"
+  const { error: dbError } = await supabase
+    .from('dipendenti')
+    .insert({
+      id: user.user.id,
+      email,
+      password,
+      ...profilo,
+      attivo: true // Forza campo attivo = true
+    });
 
   if (dbError) {
     return res.status(500).json({ error: 'Errore salvataggio DB: ' + dbError.message });
