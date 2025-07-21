@@ -13,22 +13,21 @@ export default async function handler(req, res) {
 
   const { email, password, ...profilo } = req.body;
 
-const { data: user, error: authError } = await supabase.auth.admin.createUser({
-  email,
-  password,
-  email_confirm: false, 
-  user_metadata: { attivo: true } 
-});
+  // ✅ Crea utente in Auth
+  const { data: user, error: authError } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: false // nessuna conferma richiesta
+  });
 
   if (authError) {
     return res.status(400).json({ error: 'Errore creazione Auth: ' + authError.message });
   }
 
-  // Inserisce anche nella tabella "dipendenti"
+  // ✅ Inserisce nella tabella "dipendenti"
   const { error: dbError } = await supabase.from('dipendenti').insert({
     id: user.user.id,
     email,
-    password,
     ...profilo,
     attivo: true
   });
