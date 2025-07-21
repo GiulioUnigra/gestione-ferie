@@ -13,18 +13,18 @@ export default async function handler(req, res) {
 
   const { email, password, ...profilo } = req.body;
 
-  // 1. Crea l'utente in auth
+  // Crea utente SENZA conferma email
   const { data: user, error: authError } = await supabase.auth.admin.createUser({
     email,
     password,
-    email_confirm: true  // ATTIVA SUBITO l’account
+    // NON includere email_confirm se hai disattivato la conferma nel pannello
   });
 
   if (authError) {
     return res.status(400).json({ error: 'Errore creazione Auth: ' + authError.message });
   }
 
-  // 2. Salva i dati nella tabella 'dipendenti'
+  // Inserisce anche nella tabella "dipendenti"
   const { error: dbError } = await supabase.from('dipendenti').insert({
     id: user.user.id,
     email,
