@@ -13,12 +13,12 @@ export default async function handler(req, res) {
 
   const { email, password, ...profilo } = req.body;
 
-  // Crea utente SENZA conferma email
-  const { data: user, error: authError } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    // NON includere email_confirm se hai disattivato la conferma nel pannello
-  });
+const { data: user, error: authError } = await supabase.auth.admin.createUser({
+  email,
+  password,
+  email_confirm: false, 
+  user_metadata: { attivo: true } 
+});
 
   if (authError) {
     return res.status(400).json({ error: 'Errore creazione Auth: ' + authError.message });
