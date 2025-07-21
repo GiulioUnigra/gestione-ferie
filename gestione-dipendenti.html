@@ -107,10 +107,11 @@
   <script type="module">
     import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-    const supabase = createClient(
-      'https://sauahmyekejigpbjrdug.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhdWFobXlla2VqaWdwYmpyZHVnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MTQ2NzY5NywiZXhwIjoyMDY3MDQzNjk3fQ.1cMkPZC6WphRwdBrROPAeSO4ESmisVxdBhOmXUK1ALM'
-    );
+const supabase = createClient(
+  'https://sauahmyekejigpbjrdug.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhdWFobXlla2VqaWdwYmpyZHVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0Njc2OTcsImV4cCI6MjA2NzA0MzY5N30.JetFvFBwg1dy9AqyeSnTYalAuuIrPAyaFWzc8SRaxYo'
+);
+
 
     const utente = JSON.parse(localStorage.getItem("utenteLoggato"));
     const ruolo = utente?.ruolo;
