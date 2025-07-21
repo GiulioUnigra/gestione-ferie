@@ -171,7 +171,7 @@
       document.getElementById("gruppo").value = data.gruppo;
       document.getElementById("ruolo").value = data.ruolo;
       document.getElementById("tipo_turno").value = data.tipo_turno;
-      document.getElementById("ore_precedenti").value = data.ore_disponibili;
+      document.getElementById("ore_accumulate").value = data.ore_accumulate;
       document.getElementById("ore_annuali").value = data.ore_annuali;
     });
 
@@ -188,7 +188,7 @@
         gruppo: document.getElementById("gruppo").value,
         ruolo: document.getElementById("ruolo").value,
         tipo_turno: document.getElementById("tipo_turno").value,
-        ore_disponibili: parseFloat(document.getElementById("ore_precedenti").value || 0),
+        ore_accumulate: parseFloat(document.getElementById("ore_accumulate").value || 0),
         ore_annuali: parseFloat(document.getElementById("ore_annuali").value || 0),
         attivo: true
       };
