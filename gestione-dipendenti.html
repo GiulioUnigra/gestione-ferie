@@ -109,7 +109,7 @@
 
     const supabase = createClient(
       'https://sauahmyekejigpbjrdug.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhdWFobXlla2VqaWdwYmpyZHVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0Njc2OTcsImV4cCI6MjA2NzA0MzY5N30.JetFvFBwg1dy9AqyeSnTYalAuuIrPAyaFWzc8SRaxYo'
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhdWFobXlla2VqaWdwYmpyZHVnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MTQ2NzY5NywiZXhwIjoyMDY3MDQzNjk3fQ.1cMkPZC6WphRwdBrROPAeSO4ESmisVxdBhOmXUK1ALM'
     );
 
     const utente = JSON.parse(localStorage.getItem("utenteLoggato"));
@@ -179,10 +179,12 @@
       const messaggio = document.getElementById("messaggio");
       messaggio.textContent = "";
       const id = document.getElementById("dipendente_selezionato").value;
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
       const nuovoDip = {
         nome: document.getElementById("nome").value,
-        email: document.getElementById("email").value,
-        password: document.getElementById("password").value,
+        email,
+        password,
         telefono_fisso: document.getElementById("telefono_fisso").value,
         cellulare: document.getElementById("cellulare").value,
         gruppo: document.getElementById("gruppo").value,
@@ -208,11 +210,18 @@
       if (id) {
         result = await supabase.from("dipendenti").update(nuovoDip).eq("id", id);
       } else {
-        result = await supabase.from("dipendenti").insert(nuovoDip);
+        const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
+        if (authError) {
+          messaggio.textContent = "Errore creazione Auth: " + authError.message;
+          return;
+        }
+        const nuovoID = authData.user.id;
+        result = await supabase.from("dipendenti").insert([{ id: nuovoID, ...nuovoDip }]);
       }
+
       const { error } = result;
       if (error) {
-        messaggio.textContent = "Errore: " + error.message;
+        messaggio.textContent = "Errore salvataggio: " + error.message;
       } else {
         alert("Dipendente salvato correttamente.");
         window.location.reload();
